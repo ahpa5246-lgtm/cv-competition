@@ -1,4 +1,4 @@
-"""Generate candidate robot trajectories around a demonstrated intent."""
+"""Generate alternative robot trajectories around a task intent."""
 from __future__ import annotations
 
 from src.core.types import Point2D, RobotTrajectory
@@ -44,6 +44,7 @@ def generate_trajectory(
             RobotTrajectory(
                 trajectory_id=f"candidate-{i:02d}",
                 waypoints=waypoints,
+                source="generated-alternative",
                 metadata={"lateral_offset": offset},
             )
         )
