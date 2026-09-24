@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
+from src.core.types import MotionIntent, RobotTrajectory
 from src.execution.protocol import VisualEnvironment
 from src.pipeline import plan_from_robot_state
 from src.verification.visual_verifier import verify_target_reached
@@ -22,6 +23,7 @@ DEFAULT_OBSTACLE_HSV = ((100, 120, 80), (140, 255, 255))
 def run_closed_loop(
     environment: VisualEnvironment,
     *,
+    demonstration_intent: MotionIntent | None = None,
     max_attempts: int = 3,
     num_candidates: int = 9,
     max_lateral_offset: float = 0.45,
@@ -57,9 +59,8 @@ def run_closed_loop(
                 "max_lateral_offset": max_lateral_offset,
             },
             num_candidates=num_candidates,
+            demonstration_intent=demonstration_intent,
         )
-
-        from src.core.types import RobotTrajectory
 
         selected_data = plan["selected_trajectory"]
         selected = RobotTrajectory(
@@ -79,7 +80,11 @@ def run_closed_loop(
             frame_index=attempt,
         )
         if post_scene.hand_xy is None or post_scene.target_xy is None:
-            verified = {"success": False, "distance": float("inf"), "tolerance": verification_tolerance}
+            verified = {
+                "success": False,
+                "distance": float("inf"),
+                "tolerance": verification_tolerance,
+            }
         else:
             verified = verify_target_reached(
                 post_scene.hand_xy,
@@ -91,6 +96,7 @@ def run_closed_loop(
             "attempt": attempt,
             "observed_obstacles": scene.obstacle_boxes,
             "selected_trajectory": selected.trajectory_id,
+            "selected_source": selected.source,
             "predicted": plan["selected_prediction"],
             "execution": asdict(execution),
             "visual_verification": verified,
