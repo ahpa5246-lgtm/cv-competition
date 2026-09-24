@@ -1,29 +1,59 @@
 project:
-  name: human-motion-robot-prediction
+  name: watch-imagine-act
   seed: 42
+  thesis: "Learn task intent from human video, imagine robot outcomes, then act and verify."
+
+runtime:
+  python: ">=3.11"
+  opencv: "5.0.0"
 
 input:
   video: data/demonstrations/grasp_cup.mp4
-  fps: 30
+  max_frames: 300
 
 task:
-  name: grasp_cup
+  family: tabletop_manipulation
+  name: reach_and_grasp
 
 vision:
-  detect_objects: true
-  track_hand: true
-  estimate_pose: true
+  backend: opencv_baseline
+  optical_flow: true
+  object_tracking: hsv_baseline
+  dnn_backend: planned
+  camera_calibration: planned
 
 motion:
-  representation: compact
-  normalize: true
+  representation: task_centric
+  coordinate_space: normalized
+  stamo_adapter: planned
+
+robot:
+  workspace: [0.0, 0.0, 1.0, 1.0]
+  max_lateral_offset: 0.30
+  num_candidates: 7
 
 prediction:
-  horizon: 20
+  backend: heuristic_baseline
+  irasim_adapter: planned
+  success_radius: 0.08
 
 selection:
-  num_candidates: 5
-  refine: true
+  success_weight: 2.0
+  collision_weight: 3.0
+  distance_weight: 1.0
+
+verification:
+  enabled: true
+  target_tolerance: 0.08
+
+evaluation:
+  metrics:
+    - task_success_rate
+    - collision_rate
+    - target_distance
+    - planning_latency_ms
+    - prediction_calibration
+    - recovery_success_rate
 
 output:
   directory: outputs/
