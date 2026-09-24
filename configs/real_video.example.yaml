@@ -1,0 +1,33 @@
+name: my-first-real-video-test
+task: reach_target
+
+inputs:
+  # Paths can be absolute or relative to this YAML file/current working dir.
+  demonstration_video: ../data/demonstrations/human_reach.mp4
+  robot_scene_image: ../data/raw/robot_scene.jpg
+  max_frames: 300
+
+vision:
+  # OpenCV HSV ranges. Tune these for your recording setup.
+  human_hand_hsv:
+    lower: [45, 120, 80]
+    upper: [85, 255, 255]
+
+  robot_effector_hsv:
+    lower: [45, 120, 80]
+    upper: [85, 255, 255]
+
+  target_hsv:
+    lower: [0, 140, 100]
+    upper: [10, 255, 255]
+
+  obstacle_hsv:
+    lower: [100, 120, 80]
+    upper: [140, 255, 255]
+
+planning:
+  num_candidates: 9
+  max_lateral_offset: 0.45
+
+output:
+  directory: outputs/experiments
