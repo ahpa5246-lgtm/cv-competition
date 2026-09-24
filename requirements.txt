@@ -1,6 +1,7 @@
-numpy
-opencv-python
-torch
-torchvision
+# OpenCV 5 baseline environment.
+# Headless is sufficient for CI, AWS, and saved visualizations.
+opencv-python-headless==5.0.0.93
+numpy==2.3.5
 pyyaml
 matplotlib
+pytest
