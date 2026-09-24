@@ -19,8 +19,9 @@ vision:
   backend: opencv_baseline
   optical_flow: true
   object_tracking: hsv_baseline
+  scene_reobservation: true
   dnn_backend: planned
-  camera_calibration: planned
+  camera_calibration: homography_baseline
 
 motion:
   representation: task_centric
@@ -29,8 +30,8 @@ motion:
 
 robot:
   workspace: [0.0, 0.0, 1.0, 1.0]
-  max_lateral_offset: 0.30
-  num_candidates: 7
+  max_lateral_offset: 0.45
+  num_candidates: 9
 
 prediction:
   backend: heuristic_baseline
@@ -44,7 +45,13 @@ selection:
 
 verification:
   enabled: true
-  target_tolerance: 0.08
+  visual_reobservation_required: true
+  target_tolerance: 0.065
+  max_recovery_attempts: 3
+
+execution:
+  backend: tabletop_simulator
+  physical_robot_adapter: planned
 
 evaluation:
   metrics:
@@ -54,6 +61,7 @@ evaluation:
     - planning_latency_ms
     - prediction_calibration
     - recovery_success_rate
+    - replans_per_episode
 
 output:
   directory: outputs/
