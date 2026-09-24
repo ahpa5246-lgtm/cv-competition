@@ -1,0 +1,29 @@
+project:
+  name: human-motion-robot-prediction
+  seed: 42
+
+input:
+  video: data/demonstrations/grasp_cup.mp4
+  fps: 30
+
+task:
+  name: grasp_cup
+
+vision:
+  detect_objects: true
+  track_hand: true
+  estimate_pose: true
+
+motion:
+  representation: compact
+  normalize: true
+
+prediction:
+  horizon: 20
+
+selection:
+  num_candidates: 5
+  refine: true
+
+output:
+  directory: outputs/
