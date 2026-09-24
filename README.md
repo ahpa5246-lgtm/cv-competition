@@ -2,7 +2,8 @@
 
 A computer-vision + robotics system that learns task intent from human video,
 retargets it to a robot, imagines multiple candidate futures before execution,
-selects a safer successful trajectory, acts, and visually verifies the result.
+selects a safer successful trajectory, acts, **re-observes the world**, and
+replans until the visual goal is verified.
 
 ## Problem
 
@@ -11,21 +12,22 @@ demonstrations, teleoperation, manually designed trajectories, or costly
 physical trial-and-error. A human demonstration also cannot simply be copied:
 the robot has different kinematics and may face a changed scene.
 
-This project investigates a stronger loop:
+The project implements:
 
-**Watch → Understand → Retarget → Imagine → Select → Act → Verify**
+**Watch → Understand → Retarget → Imagine → Select → Act → Observe → Verify → Replan**
 
-The first competition scope is deliberately narrow and measurable:
+The first competition scope remains deliberately narrow and measurable:
 **tabletop manipulation from human demonstrations**.
 
 ## Why this is a computer-vision project
 
 OpenCV 5 is not used merely to read a video. The perception layer owns frame
-processing, temporal motion, object/hand localization, camera-to-table
-geometry, coordinate transforms, and post-action visual verification.
+processing, temporal motion, object/hand localization, obstacle discovery,
+camera-to-table geometry, coordinate transforms, and post-action visual
+verification.
 
 The current MVP implements transparent OpenCV baselines:
-HSV segmentation, dense Farneback optical flow, contour geometry and
+HSV segmentation, contour geometry, dense Farneback optical flow and
 homography estimation. OpenCV DNN detectors/segmenters can replace the
 baseline perception behind stable interfaces.
 
@@ -38,13 +40,11 @@ Human demonstration video
 ┌───────────────────────────┐
 │ OpenCV 5 perception       │
 │ objects / motion / scene  │
-│ camera → table geometry   │
 └────────────┬──────────────┘
              ▼
 ┌───────────────────────────┐
-│ Task-centric motion       │
-│ representation            │
-│ (StaMo adapter planned)   │
+│ Task-centric intent       │
+│ StaMo adapter planned     │
 └────────────┬──────────────┘
              ▼
 ┌───────────────────────────┐
@@ -56,121 +56,134 @@ Human demonstration video
 └────────────┬──────────────┘
              ▼
 ┌───────────────────────────┐
-│ World-model rollouts      │
-│ local baseline now        │
-│ IRASim/AWS path planned   │
+│ Imagine future outcomes   │
+│ heuristic → IRASim/AWS    │
 └────────────┬──────────────┘
              ▼
-┌───────────────────────────┐
-│ Score / select / refine   │
-└────────────┬──────────────┘
-             ▼
-       robot / simulator
+       select + execute
              │
              ▼
 ┌───────────────────────────┐
-│ OpenCV visual verification│
-└───────────────────────────┘
+│ OpenCV re-observation     │
+│ actual pose + new hazards │
+└────────────┬──────────────┘
+       success? ── yes ──► stop
+             │ no
+             └────────────► replan from observed reality
 ```
 
 ## What is implemented now
 
 - OpenCV 5 video ingestion.
-- OpenCV HSV segmentation baseline for hand/tool and target localization.
+- OpenCV HSV/contour localization for effector, target and obstacles.
 - Dense Farneback optical flow for temporal motion evidence.
 - OpenCV homography estimation for camera-to-workspace geometry.
 - Normalized task-centric motion representation.
-- Cross-workspace human-to-robot coordinate retargeting.
-- Generation of multiple robot trajectory candidates.
+- Human-to-robot coordinate retargeting.
+- Multiple candidate trajectory generation.
 - Pluggable world-model interface.
-- Deterministic geometric world-model baseline.
-- Explicit IRASim adapter boundary (not a fake implementation).
-- Candidate scoring by predicted success, collision risk, and target distance.
-- Post-action visual goal verification.
-- Reproducible synthetic end-to-end demo.
-- Synthetic direct-vs-planner ablation benchmark.
+- Deterministic geometric future-model baseline.
+- Explicit IRASim integration boundary.
+- Candidate scoring with success, collision, distance and deviation costs.
+- Tabletop execution simulator.
+- **Visual post-execution re-observation.**
+- **Automatic replanning from the robot's actually observed position.**
+- **Recovery after an obstacle appears after planning.**
+- Synthetic direct-vs-planner benchmark.
+- Synthetic open-loop-vs-closed-loop recovery benchmark.
 - AWS rollout-service client boundary.
 - Unit tests and GitHub Actions CI.
 
-## Research integrations
+## The critical recovery demo
 
-The repository intentionally separates **working baseline** from **research
-model integration**.
+Run:
 
-- **StaMo direction:** upgrade task/motion representation from handcrafted
-  tracking to a learned compact state/action representation.
-- **IRASim direction:** replace the heuristic future model with real visual
-  future rollouts, then evaluate whether those rollouts improve action
-  selection.
-- **AWS direction:** host compute-heavy counterfactual rollouts while keeping
-  latency-sensitive OpenCV perception local.
-- None of these integrations is claimed as complete until real inference or
-  infrastructure is wired and benchmarked.
+```bash
+python -m simulation.closed_loop_demo
+```
+
+The first camera observation contains no obstacle. The agent therefore plans a
+direct trajectory. Immediately before execution, a new obstacle appears.
+
+The first execution is interrupted. The agent does **not** trust its earlier
+prediction. It captures a new image, OpenCV detects the new obstacle and the
+actual effector location, then the planner generates new trajectories from that
+observed state. A safe route is selected and execution continues until the
+post-action image verifies the goal.
+
+This directly demonstrates that visual evidence changes the next action.
+
+See `docs/closed_loop_agent.md`.
 
 ## Quick start
 
-Requires Python 3.11+ and uses OpenCV 5.0.0.
+Requires Python 3.11+ and OpenCV 5.0.0.
 
 ```bash
 python -m venv .venv
-# Linux/macOS
-source .venv/bin/activate
+source .venv/bin/activate          # Linux/macOS
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 
 pip install -r requirements.txt
+pip install -e .
 
 python -m simulation.synthetic_demo
+python -m simulation.closed_loop_demo
 python -m simulation.benchmark --episodes 200
-pytest -q
+python -m simulation.recovery_benchmark --episodes 50
+python -m pytest -q
 ```
 
-The demo writes a visualization under `outputs/visualizations/`. The
-benchmark is explicitly synthetic: it tests planning logic and provides a
-baseline, not a claim about real-robot performance.
+All synthetic numbers are engineering validation of orchestration and planning,
+not claims about physical-robot performance.
 
 ## Evaluation strategy
 
-The system must beat meaningful baselines, not just produce a convincing demo.
+The final project should compare:
 
 1. Direct retargeted imitation without future planning.
 2. Candidate planning with the geometric baseline.
-3. Candidate planning with the IRASim adapter.
-4. Optional learned state/action representation versus the OpenCV baseline.
-5. Open-loop execution versus closed-loop visual verification/recovery.
+3. Candidate planning with IRASim.
+4. Open-loop execution versus closed-loop visual verification/recovery.
+5. Baseline motion representation versus a StaMo-derived learned representation.
 
-Primary metrics: task success rate, collision rate, final target distance,
-planning latency, recovery success, and calibration between predicted and
-observed success.
+Primary metrics include task success rate, collision rate, final target
+distance, planning latency, recovery success rate, replans per episode and
+prediction calibration.
 
 See:
 - `docs/evaluation_protocol.md`
+- `docs/closed_loop_agent.md`
 - `docs/research_integration.md`
 - `docs/aws_architecture.md`
 
 ## Repository layout
 
 ```
-configs/                 experiment configuration
-data/                    demonstrations and processed data
-docs/                    architecture and evaluation protocol
-simulation/              reproducible simulator/synthetic demos
+configs/
+data/
+docs/
+simulation/
 src/
-  cloud/                 AWS rollout-service boundary
-  core/                  shared typed schemas
-  vision/                OpenCV perception + geometry
-  motion/                task/motion representation
-  robot/                 retargeting + trajectory generation
-  prediction/            world-model interface and rollouts
-  selection/             scoring and refinement
-  verification/          visual closed-loop verification
-tests/                    unit and pipeline tests
-outputs/                  predictions and visualizations
+  agent/                  observe → plan → act → verify → replan
+  cloud/                  AWS rollout-service boundary
+  core/                   shared typed schemas
+  execution/              simulator/robot execution contract
+  vision/                 OpenCV perception + geometry
+  motion/                 task/motion representation
+  robot/                  retargeting + trajectory generation
+  prediction/             world-model interface and rollouts
+  selection/              scoring and refinement
+  verification/           visual goal verification
+tests/
+outputs/
 ```
 
 ## Competition thesis
 
-The project is not "YOLO + robot" and not "StaMo + IRASim" as two names glued
-together. The contribution is a complete decision loop in which **visual
-evidence changes the robot's next action**: learn intent from a human
-demonstration, adapt it to a different embodiment and scene, imagine candidate
-consequences, choose, execute, observe the result, and recover when necessary.
+The contribution is not merely object detection and not simply connecting two
+research repositories. The system uses vision twice: first to learn and plan
+from observed human behavior, and again after action to determine whether the
+world changed and what the robot should do next.
+
+**Perception is part of the control loop, not a visualization layer.**
