@@ -10,19 +10,24 @@ def score_candidates(
     success_weight: float = 2.0,
     collision_weight: float = 3.0,
     distance_weight: float = 1.0,
+    deviation_weight: float = 0.15,
 ) -> list[CandidateScore]:
-    scored = [
-        CandidateScore(
-            trajectory_id=outcome.trajectory_id,
-            score=(
-                success_weight * outcome.success_probability
-                - collision_weight * outcome.collision_risk
-                - distance_weight * outcome.target_distance
-            ),
-            outcome=outcome,
+    scored = []
+    for outcome in predictions:
+        lateral_offset = abs(float(outcome.metadata.get("lateral_offset", 0.0)))
+        score = (
+            success_weight * outcome.success_probability
+            - collision_weight * outcome.collision_risk
+            - distance_weight * outcome.target_distance
+            - deviation_weight * lateral_offset
         )
-        for outcome in predictions
-    ]
+        scored.append(
+            CandidateScore(
+                trajectory_id=outcome.trajectory_id,
+                score=score,
+                outcome=outcome,
+            )
+        )
     return sorted(scored, key=lambda item: item.score, reverse=True)
 
 
