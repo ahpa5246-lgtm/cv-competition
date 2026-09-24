@@ -106,6 +106,22 @@ This is controlled synthetic evidence for the intended rule:
 **preserve useful human motion structure when safe; reject or adapt it when the
 current scene makes imitation unsafe.**
 
+### YAML experiment harness
+
+The CI harness exercised the same workflow intended for real recordings:
+
+- loaded a human demonstration video from file;
+- tracked 60 motion points with OpenCV;
+- loaded a separate robot-scene image;
+- detected 1 obstacle;
+- transferred the learned human motion;
+- selected `human-demo` in this safe test scene;
+- wrote a structured `report.json`;
+- wrote an annotated `overlay.png`.
+
+This validates the experiment/evidence plumbing needed to move from synthetic
+unit tests to manually recorded videos without editing the planning code.
+
 ## What this does not prove
 
 It does not yet establish:
