@@ -80,6 +80,9 @@ Human demonstration video
 - OpenCV homography estimation for camera-to-workspace geometry.
 - Normalized task-centric motion representation.
 - Human-to-robot coordinate retargeting.
+- **Transfer of the demonstrated human path shape into a new robot start/goal configuration.**
+- A provenance-tagged `human-demo` candidate that competes with generated alternatives.
+- The planner prefers the human strategy when safe and rejects it when imagined risk is higher.
 - Multiple candidate trajectory generation.
 - Pluggable world-model interface.
 - Deterministic geometric future-model baseline.
@@ -93,6 +96,32 @@ Human demonstration video
 - Synthetic open-loop-vs-closed-loop recovery benchmark.
 - AWS rollout-service client boundary.
 - Unit tests and GitHub Actions CI.
+
+## Human skill-transfer demo
+
+Run:
+
+```bash
+python -m simulation.skill_transfer_demo
+```
+
+This demo generates a human demonstration video with a curved reaching motion.
+OpenCV recovers the temporal path and target, converts them into a normalized
+motion intent, and transfers that path geometry to a robot scene with a
+different start/goal configuration.
+
+Two cases are evaluated:
+
+1. **Safe transfer:** the demonstrated strategy is valid, so `human-demo` is
+   selected over generic alternatives.
+2. **Unsafe transfer:** an obstacle is placed on the transferred human path.
+   The same human strategy is still proposed, but the future-model score marks
+   collision risk and the planner chooses a generated safe alternative.
+
+The intended behavior is therefore **learn from the human, but do not blindly
+imitate the human**.
+
+See `docs/skill_transfer.md`.
 
 ## The critical recovery demo
 
@@ -129,6 +158,7 @@ pip install -e .
 
 python -m simulation.synthetic_demo
 python -m simulation.closed_loop_demo
+python -m simulation.skill_transfer_demo
 python -m simulation.benchmark --episodes 200
 python -m simulation.recovery_benchmark --episodes 50
 python -m pytest -q
@@ -154,6 +184,7 @@ prediction calibration.
 See:
 - `docs/evaluation_protocol.md`
 - `docs/closed_loop_agent.md`
+- `docs/skill_transfer.md`
 - `docs/research_integration.md`
 - `docs/aws_architecture.md`
 
