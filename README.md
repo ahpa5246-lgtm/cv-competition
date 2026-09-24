@@ -20,12 +20,14 @@ The first competition scope is deliberately narrow and measurable:
 
 ## Why this is a computer-vision project
 
-OpenCV 5 is not used merely to read a video. The perception layer is designed
-to own frame processing, temporal motion, object/hand localization, geometry,
-coordinate transforms, and post-action visual verification. The current MVP
-implements transparent OpenCV baselines (HSV segmentation + optical flow).
-OpenCV DNN detectors/segmenters can replace those baselines behind the same
-interfaces.
+OpenCV 5 is not used merely to read a video. The perception layer owns frame
+processing, temporal motion, object/hand localization, camera-to-table
+geometry, coordinate transforms, and post-action visual verification.
+
+The current MVP implements transparent OpenCV baselines:
+HSV segmentation, dense Farneback optical flow, contour geometry and
+homography estimation. OpenCV DNN detectors/segmenters can replace the
+baseline perception behind stable interfaces.
 
 ## Architecture
 
@@ -36,6 +38,7 @@ Human demonstration video
 ┌───────────────────────────┐
 │ OpenCV 5 perception       │
 │ objects / motion / scene  │
+│ camera → table geometry   │
 └────────────┬──────────────┘
              ▼
 ┌───────────────────────────┐
@@ -54,8 +57,8 @@ Human demonstration video
              ▼
 ┌───────────────────────────┐
 │ World-model rollouts      │
-│ heuristic baseline now    │
-│ IRASim adapter planned    │
+│ local baseline now        │
+│ IRASim/AWS path planned   │
 └────────────┬──────────────┘
              ▼
 ┌───────────────────────────┐
@@ -75,6 +78,7 @@ Human demonstration video
 - OpenCV 5 video ingestion.
 - OpenCV HSV segmentation baseline for hand/tool and target localization.
 - Dense Farneback optical flow for temporal motion evidence.
+- OpenCV homography estimation for camera-to-workspace geometry.
 - Normalized task-centric motion representation.
 - Cross-workspace human-to-robot coordinate retargeting.
 - Generation of multiple robot trajectory candidates.
@@ -82,8 +86,11 @@ Human demonstration video
 - Deterministic geometric world-model baseline.
 - Explicit IRASim adapter boundary (not a fake implementation).
 - Candidate scoring by predicted success, collision risk, and target distance.
-- Post-action goal verification.
-- Reproducible synthetic end-to-end demonstration and unit tests.
+- Post-action visual goal verification.
+- Reproducible synthetic end-to-end demo.
+- Synthetic direct-vs-planner ablation benchmark.
+- AWS rollout-service client boundary.
+- Unit tests and GitHub Actions CI.
 
 ## Research integrations
 
@@ -95,12 +102,14 @@ model integration**.
 - **IRASim direction:** replace the heuristic future model with real visual
   future rollouts, then evaluate whether those rollouts improve action
   selection.
-- Neither integration is claimed as complete until real inference is wired and
-  benchmarked.
+- **AWS direction:** host compute-heavy counterfactual rollouts while keeping
+  latency-sensitive OpenCV perception local.
+- None of these integrations is claimed as complete until real inference or
+  infrastructure is wired and benchmarked.
 
 ## Quick start
 
-Requires Python 3.11+.
+Requires Python 3.11+ and uses OpenCV 5.0.0.
 
 ```bash
 python -m venv .venv
@@ -109,27 +118,34 @@ source .venv/bin/activate
 # Windows PowerShell: .venv\Scripts\Activate.ps1
 
 pip install -r requirements.txt
+
 python -m simulation.synthetic_demo
+python -m simulation.benchmark --episodes 200
 pytest -q
 ```
 
-The synthetic demo writes a planning visualization under
-`outputs/visualizations/` and prints the candidate ranking.
+The demo writes a visualization under `outputs/visualizations/`. The
+benchmark is explicitly synthetic: it tests planning logic and provides a
+baseline, not a claim about real-robot performance.
 
 ## Evaluation strategy
 
 The system must beat meaningful baselines, not just produce a convincing demo.
 
-1. Direct retargeted imitation without world-model planning.
+1. Direct retargeted imitation without future planning.
 2. Candidate planning with the geometric baseline.
 3. Candidate planning with the IRASim adapter.
 4. Optional learned state/action representation versus the OpenCV baseline.
+5. Open-loop execution versus closed-loop visual verification/recovery.
 
 Primary metrics: task success rate, collision rate, final target distance,
 planning latency, recovery success, and calibration between predicted and
 observed success.
 
-See `docs/evaluation_protocol.md`.
+See:
+- `docs/evaluation_protocol.md`
+- `docs/research_integration.md`
+- `docs/aws_architecture.md`
 
 ## Repository layout
 
@@ -139,8 +155,9 @@ data/                    demonstrations and processed data
 docs/                    architecture and evaluation protocol
 simulation/              reproducible simulator/synthetic demos
 src/
+  cloud/                 AWS rollout-service boundary
   core/                  shared typed schemas
-  vision/                OpenCV perception
+  vision/                OpenCV perception + geometry
   motion/                task/motion representation
   robot/                 retargeting + trajectory generation
   prediction/            world-model interface and rollouts
