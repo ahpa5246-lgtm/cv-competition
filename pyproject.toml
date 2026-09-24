@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "watch-imagine-act"
+version = "0.1.0"
+description = "Human-video to robot planning with visual future prediction."
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "simulation*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
