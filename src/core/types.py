@@ -50,3 +50,13 @@ class CandidateScore:
     trajectory_id: str
     score: float
     outcome: RolloutOutcome
+
+
+@dataclass(slots=True)
+class ExecutionResult:
+    trajectory_id: str
+    final_xy: Point2D
+    collision: bool
+    reached_target: bool
+    steps_executed: int
+    metadata: dict[str, Any] = field(default_factory=dict)
