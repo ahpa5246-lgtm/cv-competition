@@ -25,3 +25,5 @@ jobs:
         run: python -m simulation.synthetic_demo
       - name: Synthetic benchmark
         run: python -m simulation.benchmark --episodes 50
+      - name: Closed-loop recovery demo
+        run: python -m simulation.closed_loop_demo
