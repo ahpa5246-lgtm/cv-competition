@@ -16,5 +16,7 @@ models/
 # Generated outputs
 outputs/visualizations/*
 outputs/predictions/*
+outputs/experiments/*
 !outputs/visualizations/.gitkeep
 !outputs/predictions/.gitkeep
+!outputs/experiments/.gitkeep

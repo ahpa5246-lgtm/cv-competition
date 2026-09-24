@@ -144,6 +144,34 @@ This directly demonstrates that visual evidence changes the next action.
 
 See `docs/closed_loop_agent.md`.
 
+## Real-video experiment harness
+
+Once you have a recording, no code changes are required for a baseline test.
+
+Copy `configs/real_video.example.yaml`, set:
+
+- the human demonstration video;
+- one robot-scene image/frame;
+- HSV ranges for the human hand/tool, robot effector, target and obstacles;
+- candidate-planning settings.
+
+Then run:
+
+```bash
+python -m src.experiment.cli --config path/to/experiment.yaml
+```
+
+The experiment writes a machine-readable `report.json` and an
+`overlay.png`. The report records OpenCV/Python versions, perception counts,
+the learned human intent, the transferred human trajectory, the observed robot
+scene, candidate ranking, selected trajectory and provenance.
+
+This creates a repeatable evidence format that can later compare the OpenCV
+baseline, StaMo-derived representations and IRASim world-model rollouts on the
+same recordings.
+
+See `docs/real_video_experiments.md`.
+
 ## Quick start
 
 Requires Python 3.11+ and OpenCV 5.0.0.
@@ -159,6 +187,7 @@ pip install -e .
 python -m simulation.synthetic_demo
 python -m simulation.closed_loop_demo
 python -m simulation.skill_transfer_demo
+python -m simulation.experiment_harness_demo
 python -m simulation.benchmark --episodes 200
 python -m simulation.recovery_benchmark --episodes 50
 python -m pytest -q
@@ -185,6 +214,7 @@ See:
 - `docs/evaluation_protocol.md`
 - `docs/closed_loop_agent.md`
 - `docs/skill_transfer.md`
+- `docs/real_video_experiments.md`
 - `docs/research_integration.md`
 - `docs/aws_architecture.md`
 
@@ -200,6 +230,7 @@ src/
   cloud/                  AWS rollout-service boundary
   core/                   shared typed schemas
   execution/              simulator/robot execution contract
+  experiment/             YAML experiment runner + evidence overlays
   vision/                 OpenCV perception + geometry
   motion/                 task/motion representation
   robot/                  retargeting + trajectory generation

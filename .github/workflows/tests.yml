@@ -31,3 +31,5 @@ jobs:
         run: python -m simulation.recovery_benchmark --episodes 20
       - name: Human skill-transfer demo
         run: python -m simulation.skill_transfer_demo
+      - name: YAML experiment harness demo
+        run: python -m simulation.experiment_harness_demo
