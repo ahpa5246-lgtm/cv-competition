@@ -20,4 +20,9 @@ def test_world_model_planner_selects_collision_free_candidate():
 
     assert result["verification"]["success"] is True
     assert result["selected_prediction"]["collision_risk"] == 0.0
-    assert len(result["ranking"]) == 7
+
+    # 7 generated alternatives + 1 transferred human demonstration.
+    assert len(result["ranking"]) == 8
+    sources = {row["source"] for row in result["ranking"]}
+    assert "human-demonstration-transfer" in sources
+    assert "generated-alternative" in sources

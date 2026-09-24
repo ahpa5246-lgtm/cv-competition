@@ -3,17 +3,54 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from src.core.types import BBox, Point2D, RobotTrajectory
+from src.core.types import BBox, MotionIntent, Point2D, RobotTrajectory
 from src.motion.representation import encode_motion
 from src.prediction.future_model import HeuristicWorldModel, WorldModel
 from src.prediction.rollout import rollout_candidates
 from src.robot.mapping import map_to_robot
+from src.robot.skill_transfer import trajectory_from_demonstration
 from src.robot.trajectory import generate_trajectory
 from src.selection.candidate_scoring import score_candidates
 from src.verification.visual_verifier import verify_target_reached
 from src.vision.human_motion import extract_motion
 from src.vision.object_tracking import track_colored_object
 from src.vision.video_loader import load_video
+
+
+def learn_motion_intent_from_video(
+    video_path: str,
+    *,
+    hand_hsv: tuple[tuple[int, int, int], tuple[int, int, int]],
+    target_hsv: tuple[tuple[int, int, int], tuple[int, int, int]],
+    max_frames: int | None = None,
+    task: str = "reach_target",
+) -> tuple[MotionIntent, dict]:
+    """Use OpenCV observations to turn a human video into a transferable intent."""
+    video = load_video(video_path, max_frames=max_frames)
+    hand_track = track_colored_object(video.frames, *hand_hsv)
+    target_track = track_colored_object(video.frames, *target_hsv)
+
+    observed_path = [point for point in hand_track if point is not None]
+    targets = [point for point in target_track if point is not None]
+    if len(observed_path) < 2:
+        raise RuntimeError("Could not recover enough hand/tool positions from the video")
+    if not targets:
+        raise RuntimeError("Could not find the target object in the video")
+
+    flow = extract_motion(video.frames)
+    intent = encode_motion(
+        observed_path,
+        targets[-1],
+        (video.width, video.height),
+        task=task,
+    )
+    perception = {
+        "frames": len(video.frames),
+        "fps": video.fps,
+        "tracked_points": len(observed_path),
+        "optical_flow_samples": len(flow),
+    }
+    return intent, perception
 
 
 def plan_from_robot_state(
@@ -24,30 +61,41 @@ def plan_from_robot_state(
     robot_config: dict | None = None,
     world_model: WorldModel | None = None,
     num_candidates: int = 5,
+    demonstration_intent: MotionIntent | None = None,
 ) -> dict:
-    """Plan directly from the robot's currently observed state.
+    """Plan from the currently observed robot state.
 
-    This is the key entry point for recovery: after execution, OpenCV observes
-    the actual robot pose and any changed obstacles, then replans from reality
-    rather than from the original human demonstration.
+    If a human demonstration is supplied, its transferred path competes with
+    generated alternatives under the same future-model scoring.
     """
     obstacles = obstacles or []
     robot_config = robot_config or {"workspace": (0.0, 0.0, 1.0, 1.0)}
     world_model = world_model or HeuristicWorldModel()
 
-    candidates = generate_trajectory(
-        start_xy,
-        target_xy,
-        num_candidates=num_candidates,
-        max_lateral_offset=float(robot_config.get("max_lateral_offset", 0.28)),
+    candidates: list[RobotTrajectory] = []
+    if demonstration_intent is not None:
+        candidates.append(
+            trajectory_from_demonstration(
+                demonstration_intent,
+                start_xy,
+                target_xy,
+            )
+        )
+
+    candidates.extend(
+        generate_trajectory(
+            start_xy,
+            target_xy,
+            num_candidates=num_candidates,
+            max_lateral_offset=float(robot_config.get("max_lateral_offset", 0.28)),
+        )
     )
+
     outcomes = rollout_candidates(world_model, candidates, target_xy, obstacles)
     ranked = score_candidates(outcomes)
     best_score = ranked[0]
-    best: RobotTrajectory = next(
-        candidate for candidate in candidates
-        if candidate.trajectory_id == best_score.trajectory_id
-    )
+    candidate_by_id = {candidate.trajectory_id: candidate for candidate in candidates}
+    best = candidate_by_id[best_score.trajectory_id]
 
     return {
         "selected_trajectory": asdict(best),
@@ -56,6 +104,7 @@ def plan_from_robot_state(
         "ranking": [
             {
                 "trajectory_id": item.trajectory_id,
+                "source": candidate_by_id[item.trajectory_id].source,
                 "score": item.score,
                 "collision_risk": item.outcome.collision_risk,
                 "success_probability": item.outcome.success_probability,
@@ -89,6 +138,7 @@ def plan_from_observation(
         robot_config=robot_config,
         world_model=world_model,
         num_candidates=num_candidates,
+        demonstration_intent=intent,
     )
     predicted_verification = verify_target_reached(
         tuple(plan["selected_prediction"]["predicted_final_xy"]),
@@ -113,35 +163,32 @@ def run_pipeline(
     robot_config: dict | None = None,
     max_frames: int | None = None,
 ) -> dict:
-    """Run perception and planning from an ordinary human demonstration video.
+    """Learn motion from video, transfer it and compare it with alternatives."""
+    intent, perception = learn_motion_intent_from_video(
+        video_path,
+        hand_hsv=hand_hsv,
+        target_hsv=target_hsv,
+        max_frames=max_frames,
+    )
+    robot_config = robot_config or {"workspace": (0.0, 0.0, 1.0, 1.0)}
+    start, goal, demonstrated_path = map_to_robot(intent, robot_config)
 
-    This function plans but does not claim physical success. Actual success must
-    be established by post-execution visual verification in the closed-loop
-    agent.
-    """
-    video = load_video(video_path, max_frames=max_frames)
-    hand_track = track_colored_object(video.frames, *hand_hsv)
-    target_track = track_colored_object(video.frames, *target_hsv)
-
-    observed_path = [point for point in hand_track if point is not None]
-    targets = [point for point in target_track if point is not None]
-    if len(observed_path) < 2:
-        raise RuntimeError("Could not recover enough hand/tool positions from the video")
-    if not targets:
-        raise RuntimeError("Could not find the target object in the video")
-
-    flow = extract_motion(video.frames)
-    result = plan_from_observation(
-        observed_path,
-        targets[-1],
-        (video.width, video.height),
+    plan = plan_from_robot_state(
+        start,
+        goal,
         obstacles=obstacles,
         robot_config=robot_config,
+        demonstration_intent=intent,
     )
-    result["perception"] = {
-        "frames": len(video.frames),
-        "fps": video.fps,
-        "tracked_points": len(observed_path),
-        "optical_flow_samples": len(flow),
+    predicted_verification = verify_target_reached(
+        tuple(plan["selected_prediction"]["predicted_final_xy"]),
+        goal,
+    )
+    return {
+        "intent": asdict(intent),
+        "demonstrated_robot_path": demonstrated_path,
+        **plan,
+        "verification": predicted_verification,
+        "predicted_verification": predicted_verification,
+        "perception": perception,
     }
-    return result

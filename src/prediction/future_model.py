@@ -58,7 +58,11 @@ class HeuristicWorldModel:
             success_probability=success_probability,
             metadata={
                 "model": "heuristic-baseline",
+                "source": trajectory.source,
                 "lateral_offset": float(trajectory.metadata.get("lateral_offset", 0.0)),
+                "demonstration_fidelity": float(
+                    trajectory.metadata.get("demonstration_fidelity", 0.0)
+                ),
             },
         )
 

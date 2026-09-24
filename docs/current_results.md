@@ -84,6 +84,28 @@ initial plan and intersects the initially preferred direct route. These values
 therefore demonstrate recovery-loop correctness under that controlled
 condition; they are **not** estimates of general real-world reliability.
 
+### Human skill-transfer trace
+
+The end-to-end skill-transfer CI demo generated a 60-frame human motion video
+at 20 FPS. OpenCV recovered all 60 tracked hand positions and 59 optical-flow
+transitions.
+
+The learned curved path was then transferred into a different robot start/goal
+configuration.
+
+| Condition | Planner decision |
+|---|---|
+| Transferred human path is safe | selected `human-demo` |
+| New obstacle blocks transferred human path | selected `candidate-04` |
+| Predicted collision risk for blocked `human-demo` | 0.12 |
+| Closed-loop execution of safe alternative | success |
+| Executed trajectory provenance | `generated-alternative` |
+
+This is controlled synthetic evidence for the intended rule:
+
+**preserve useful human motion structure when safe; reject or adapt it when the
+current scene makes imitation unsafe.**
+
 ## What this does not prove
 
 It does not yet establish:
