@@ -1,0 +1,5 @@
+-r requirements.txt
+# Research adapters. Pin versions only after validating the upstream StaMo
+# and IRASim environments because their CUDA/PyTorch constraints may differ.
+torch
+torchvision
