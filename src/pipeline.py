@@ -99,6 +99,7 @@ def plan_from_observation(
         "intent": asdict(intent),
         "demonstrated_robot_path": demonstrated_path,
         **plan,
+        "verification": predicted_verification,
         "predicted_verification": predicted_verification,
     }
 
