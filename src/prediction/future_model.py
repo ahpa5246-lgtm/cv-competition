@@ -56,7 +56,10 @@ class HeuristicWorldModel:
             target_distance=distance,
             collision_risk=collision_risk,
             success_probability=success_probability,
-            metadata={"model": "heuristic-baseline"},
+            metadata={
+                "model": "heuristic-baseline",
+                "lateral_offset": float(trajectory.metadata.get("lateral_offset", 0.0)),
+            },
         )
 
 
