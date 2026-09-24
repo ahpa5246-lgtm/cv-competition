@@ -16,6 +16,55 @@ from src.vision.object_tracking import track_colored_object
 from src.vision.video_loader import load_video
 
 
+def plan_from_robot_state(
+    start_xy: Point2D,
+    target_xy: Point2D,
+    *,
+    obstacles: list[BBox] | None = None,
+    robot_config: dict | None = None,
+    world_model: WorldModel | None = None,
+    num_candidates: int = 5,
+) -> dict:
+    """Plan directly from the robot's currently observed state.
+
+    This is the key entry point for recovery: after execution, OpenCV observes
+    the actual robot pose and any changed obstacles, then replans from reality
+    rather than from the original human demonstration.
+    """
+    obstacles = obstacles or []
+    robot_config = robot_config or {"workspace": (0.0, 0.0, 1.0, 1.0)}
+    world_model = world_model or HeuristicWorldModel()
+
+    candidates = generate_trajectory(
+        start_xy,
+        target_xy,
+        num_candidates=num_candidates,
+        max_lateral_offset=float(robot_config.get("max_lateral_offset", 0.28)),
+    )
+    outcomes = rollout_candidates(world_model, candidates, target_xy, obstacles)
+    ranked = score_candidates(outcomes)
+    best_score = ranked[0]
+    best: RobotTrajectory = next(
+        candidate for candidate in candidates
+        if candidate.trajectory_id == best_score.trajectory_id
+    )
+
+    return {
+        "selected_trajectory": asdict(best),
+        "selected_score": best_score.score,
+        "selected_prediction": asdict(best_score.outcome),
+        "ranking": [
+            {
+                "trajectory_id": item.trajectory_id,
+                "score": item.score,
+                "collision_risk": item.outcome.collision_risk,
+                "success_probability": item.outcome.success_probability,
+            }
+            for item in ranked
+        ],
+    }
+
+
 def plan_from_observation(
     observed_path: list[Point2D],
     target_xy: Point2D,
@@ -33,37 +82,24 @@ def plan_from_observation(
     intent = encode_motion(observed_path, target_xy, frame_size)
     start, goal, demonstrated_path = map_to_robot(intent, robot_config)
 
-    candidates = generate_trajectory(
+    plan = plan_from_robot_state(
         start,
         goal,
+        obstacles=obstacles,
+        robot_config=robot_config,
+        world_model=world_model,
         num_candidates=num_candidates,
-        max_lateral_offset=float(robot_config.get("max_lateral_offset", 0.28)),
     )
-    outcomes = rollout_candidates(world_model, candidates, goal, obstacles)
-    ranked = score_candidates(outcomes)
-    best_score = ranked[0]
-    best: RobotTrajectory = next(
-        candidate for candidate in candidates
-        if candidate.trajectory_id == best_score.trajectory_id
+    predicted_verification = verify_target_reached(
+        tuple(plan["selected_prediction"]["predicted_final_xy"]),
+        goal,
     )
-    verification = verify_target_reached(best_score.outcome.predicted_final_xy, goal)
 
     return {
         "intent": asdict(intent),
         "demonstrated_robot_path": demonstrated_path,
-        "selected_trajectory": asdict(best),
-        "selected_score": best_score.score,
-        "selected_prediction": asdict(best_score.outcome),
-        "verification": verification,
-        "ranking": [
-            {
-                "trajectory_id": item.trajectory_id,
-                "score": item.score,
-                "collision_risk": item.outcome.collision_risk,
-                "success_probability": item.outcome.success_probability,
-            }
-            for item in ranked
-        ],
+        **plan,
+        "predicted_verification": predicted_verification,
     }
 
 
@@ -76,10 +112,11 @@ def run_pipeline(
     robot_config: dict | None = None,
     max_frames: int | None = None,
 ) -> dict:
-    """Run the executable MVP from an ordinary video.
+    """Run perception and planning from an ordinary human demonstration video.
 
-    HSV tracking is intentionally a transparent baseline. Production/research
-    perception can replace it with OpenCV DNN while keeping this API stable.
+    This function plans but does not claim physical success. Actual success must
+    be established by post-execution visual verification in the closed-loop
+    agent.
     """
     video = load_video(video_path, max_frames=max_frames)
     hand_track = track_colored_object(video.frames, *hand_hsv)
