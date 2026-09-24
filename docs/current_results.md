@@ -66,6 +66,24 @@ This is the first repository-level proof of:
 
 **Predict → Act → Observe contradiction → Update world state → Replan → Verify**
 
+### Recovery benchmark
+
+A second CI benchmark ran 20 deterministic surprise-obstacle episodes
+(`seed = 42`) and compared one-shot open-loop execution with visual
+re-observation/replanning.
+
+| Metric | Result |
+|---|---:|
+| Open-loop success rate | 0.00 |
+| Open-loop collision rate | 1.00 |
+| Closed-loop success rate | 1.00 |
+| Closed-loop mean attempts | 2.00 |
+
+The scenarios are deliberately constructed so the obstacle appears after the
+initial plan and intersects the initially preferred direct route. These values
+therefore demonstrate recovery-loop correctness under that controlled
+condition; they are **not** estimates of general real-world reliability.
+
 ## What this does not prove
 
 It does not yet establish:
