@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+
+# Local datasets/checkpoints
+data/raw/*
+data/processed/*
+checkpoints/
+models/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Generated outputs
+outputs/visualizations/*
+outputs/predictions/*
+!outputs/visualizations/.gitkeep
+!outputs/predictions/.gitkeep
