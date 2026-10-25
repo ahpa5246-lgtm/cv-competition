@@ -1,5 +1,34 @@
 # Watch → Imagine → Act
 
+## Download, setup and project overview
+
+A visual demonstration-to-robot experimentation pipeline.
+
+OpenCV perception; tabletop calibration; trajectory candidates; closed-loop observation and replanning.
+
+![Project workflow illustration](docs/project-overview.svg)
+
+[Download source ZIP](https://github.com/ahpa5246-lgtm/cv-competition/archive/refs/heads/main.zip) · [Changes and branches](https://github.com/ahpa5246-lgtm/cv-competition/branches) · [Verification notes](docs/QUALITY_REVIEW.md)
+
+The ZIP contains source code. Installation steps and external runtime requirements are listed below.
+
+```bash
+git clone https://github.com/ahpa5246-lgtm/cv-competition.git
+cd cv-competition
+```
+
+From the repository directory:
+
+```text
+python -m venv .venv
+# Activate .venv before installing packages.
+python -m pip install -r requirements.txt
+# Follow the task-specific CLI / notebook instructions below.
+```
+
+The diagram is a project illustration. Test results and runtime limitations are recorded in [the review](docs/QUALITY_REVIEW.md); it is not a production-readiness certification.
+
+
 A computer-vision + robotics system that learns task intent from human video,
 retargets it to a robot, imagines multiple candidate futures before execution,
 selects a safer successful trajectory, acts, **re-observes the world**, and
